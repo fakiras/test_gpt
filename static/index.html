@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="apple-mobile-web-app-capable" content="yes"><title>Монитор компьютера</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101721;color:#edf3fa;font:18px -apple-system,Arial,sans-serif;padding:26px}header{margin-bottom:25px}h1{font-size:30px;margin:0 0 8px}#status{color:#93a8bf;font-size:16px}.grid{margin:0 -8px}.card{display:inline-block;vertical-align:top;width:calc(50% - 20px);margin:8px;padding:24px;background:#1b2736;border-radius:16px;min-height:200px}h2{font-size:17px;color:#9fb2c8;margin:0 0 18px;font-weight:normal}.number{font-size:48px;font-weight:600;letter-spacing:-2px}.detail{font-size:15px;color:#aabbd0;margin-top:14px;line-height:1.5}.bar{height:9px;background:#304057;margin-top:18px;border-radius:8px;overflow:hidden}.fill{height:100%;background:#59d8b0;width:0;-webkit-transition:width .5s;transition:width .5s}#cores{margin-top:15px}.core{display:inline-block;width:7px;height:28px;background:#304057;margin:2px;position:relative}.core i{position:absolute;bottom:0;width:100%;background:#59d8b0}footer{font-size:13px;color:#8195ac;margin:22px 8px}@media(max-width:600px){body{padding:15px}.card{width:calc(100% - 16px)}h1{font-size:25px}}
+</style></head><body><header><h1>Монитор компьютера</h1><div id="status" role="status">Подключение…</div></header><main class="grid">
+<section class="card"><h2>ПРОЦЕССОР</h2><div class="number" id="cpu">—</div><div class="bar"><div class="fill" id="cpuBar"></div></div><div id="cores"></div></section>
+<section class="card"><h2>ОПЕРАТИВНАЯ ПАМЯТЬ</h2><div class="number" id="memory">—</div><div class="bar"><div class="fill" id="memoryBar"></div></div><div class="detail" id="memoryDetail">Ожидание данных</div></section>
+<section class="card"><h2>ВИДЕОКАРТА</h2><div class="number" id="gpu">—</div><div class="bar"><div class="fill" id="gpuBar"></div></div><div class="detail" id="gpuDetail">Ожидание данных</div></section>
+<section class="card"><h2>СЕТЬ</h2><div class="number" style="font-size:32px" id="receive">—</div><div class="detail" id="send">Ожидание данных</div></section>
+<section class="card"><h2>СИСТЕМНЫЙ ДИСК</h2><div class="number" id="disk">—</div><div class="bar"><div class="fill" id="diskBar"></div></div><div class="detail" id="diskDetail">Ожидание данных</div></section>
+</main><footer>Обновление каждые 2 секунды · Только локальная сеть</footer>
+<script>
+(function(){
+function text(id,value){document.getElementById(id).textContent=value;}
+function percent(id,value){text(id,Math.round(value)+'%');document.getElementById(id+'Bar').style.width=Math.max(0,Math.min(100,value))+'%';}
+function size(n){var units=['Б','КБ','МБ','ГБ','ТБ'],i=0;while(n>=1024&&i<4){n/=1024;i++;}return n.toFixed(i?1:0)+' '+units[i];}
+function update(d){
+if(!d.timestamp){text('status','Сбор первых показателей…');return;}
+if(Date.now()/1000-d.timestamp>15){text('status','Данные устарели · проверка сбора показателей');return;}
+text('status',d.host+' · обновлено '+new Date(d.timestamp*1000).toLocaleTimeString());
+percent('cpu',d.cpu);percent('memory',d.memory.percent);percent('disk',d.disk.percent);
+text('memoryDetail',size(d.memory.used)+' из '+size(d.memory.total));text('diskDetail',size(d.disk.used)+' из '+size(d.disk.total));
+text('receive','↓ '+size(d.network.receive)+'/с');text('send','↑ Отправка: '+size(d.network.send)+'/с');
+var cores=document.getElementById('cores');cores.innerHTML='';for(var i=0;i<d.cores.length;i++){var c=document.createElement('span');c.className='core';c.title='CPU '+(i+1)+': '+d.cores[i]+'%';var fill=document.createElement('i');fill.style.height=d.cores[i]+'%';c.appendChild(fill);cores.appendChild(c);}
+if(d.gpu.length){var g=d.gpu[0];percent('gpu',g.load);text('gpuDetail',g.name+' · '+g.temperature+' °C · VRAM '+Math.round(g.used)+' / '+Math.round(g.total)+' МБ');}else{text('gpu','—');text('gpuDetail','Показатели недоступны. Нужна NVIDIA с nvidia-smi.');}
+}
+function poll(){var xhr=new XMLHttpRequest();xhr.open('GET','/api/stats?t='+Date.now(),true);xhr.timeout=6000;xhr.onload=function(){if(xhr.status===200){try{update(JSON.parse(xhr.responseText));}catch(e){text('status','Ошибка данных сервера');}}else{text('status','Ошибка сервера: '+xhr.status);}window.setTimeout(poll,2000);};xhr.onerror=xhr.ontimeout=function(){text('status','Нет связи · проверьте компьютер и Wi-Fi');window.setTimeout(poll,3000);};xhr.send();}poll();
+}());
+</script></body></html>
